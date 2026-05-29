@@ -1,0 +1,66 @@
+name: CI - BovWeight API
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  laravel-tests:
+    name: PHP 8.3 - Tests con MySQL
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: secret
+          MYSQL_DATABASE: bovweight_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: Checkout código fuente
+        uses: actions/checkout@v4
+
+      - name: Configurar PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+          extensions: mbstring, pdo, pdo_mysql, xml, bcmath, json, tokenizer, sqlite3
+          coverage: none
+
+      - name: Copiar .env de ejemplo
+        run: cp .env.example .env
+
+      - name: Instalar dependencias con Composer
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Generar clave de aplicación
+        run: php artisan key:generate
+
+      - name: Ejecutar migraciones
+        run: php artisan migrate --force
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: bovweight_test
+          DB_USERNAME: root
+          DB_PASSWORD: secret
+
+      - name: Ejecutar suite de pruebas PHPUnit
+        run: php artisan test --verbose
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: bovweight_test
+          DB_USERNAME: root
+          DB_PASSWORD: secret
